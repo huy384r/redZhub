@@ -1,0 +1,382 @@
+-- ═══════════════════════════════════════════════════════════
+-- CROSS-EXECUTOR KEY SYSTEM WITH DISCORD LINK COPY
+-- Works on: Delta, Xeno, Solara, Codex, Fluxus, Krnl, etc.
+-- ═══════════════════════════════════════════════════════════
+
+local DISCORD_INVITE = "https://discord.gg/zH9598mPp" -- ← CHANGE THIS
+
+-- ═══════════════════════════════════════════════════════════
+-- SAFE SERVICE LOADING (works even if executor restricts some)
+-- ═══════════════════════════════════════════════════════════
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- ═══════════════════════════════════════════════════════════
+-- SAFE COREGUI ACCESS (Critical for mobile/executor compatibility)
+-- ═══════════════════════════════════════════════════════════
+local function getSafeGuiParent()
+    -- Try CoreGui first (works on most executors)
+    local success, coreGui = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    
+    if success and coreGui then
+        return coreGui
+    end
+    
+    -- Fallback to PlayerGui (works on Delta mobile, Xeno web, etc.)
+    return player:WaitForChild("PlayerGui", 10)
+end
+
+-- Remove old GUI if it exists
+local existingGui = getSafeGuiParent():FindFirstChild("KeySystemGui")
+if existingGui then
+    existingGui:Destroy()
+end
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KeySystemGui"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 999
+
+-- Safe parenting with retry
+local function safeParentGui(gui, parent)
+    local success = pcall(function()
+        gui.Parent = parent
+    end)
+    if not success then
+        gui.Parent = player:WaitForChild("PlayerGui", 5)
+    end
+end
+
+safeParentGui(screenGui, getSafeGuiParent())
+
+-- ═══════════════════════════════════════════════════════════
+-- MAIN FRAME (DARK BACKGROUND WITH RED CORNERS)
+-- ═══════════════════════════════════════════════════════════
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 450, 0, 280)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+-- RED border stroke (the "corners")
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(255, 40, 40)
+mainStroke.Thickness = 3
+mainStroke.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 45)
+titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+-- Red underline separator
+local titleAccent = Instance.new("Frame")
+titleAccent.Size = UDim2.new(1, 0, 0, 2)
+titleAccent.Position = UDim2.new(0, 0, 1, -2)
+titleAccent.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+titleAccent.BorderSizePixel = 0
+titleAccent.Parent = titleBar
+
+local titleFix = Instance.new("Frame")
+titleFix.Size = UDim2.new(1, 0, 0, 15)
+titleFix.Position = UDim2.new(0, 0, 1, -15)
+titleFix.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+titleFix.BorderSizePixel = 0
+titleFix.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -30, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Red-Z Hub (🔑  Key System)"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = titleBar
+
+-- ═══════════════════════════════════════════════════════════
+-- DESCRIPTION
+-- ═══════════════════════════════════════════════════════════
+local descLabel = Instance.new("TextLabel")
+descLabel.Size = UDim2.new(1, -40, 0, 50)
+descLabel.Position = UDim2.new(0, 20, 0, 60)
+descLabel.BackgroundTransparency = 1
+descLabel.Text = "Click 'Get Key' below to copy our Discord invite link,\nthen join and Get your key!"
+descLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+descLabel.TextSize = 14
+descLabel.Font = Enum.Font.Gotham
+descLabel.TextWrapped = true
+descLabel.Parent = mainFrame
+
+-- ═══════════════════════════════════════════════════════════
+-- KEY INPUT (Editable on PC, Read-only hint on mobile)
+-- ═══════════════════════════════════════════════════════════
+local inputFrame = Instance.new("Frame")
+inputFrame.Size = UDim2.new(1, -40, 0, 45)
+inputFrame.Position = UDim2.new(0, 20, 0, 120)
+inputFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+inputFrame.BorderSizePixel = 0
+inputFrame.Parent = mainFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 8)
+inputCorner.Parent = inputFrame
+
+local inputStroke = Instance.new("UIStroke")
+inputStroke.Color = Color3.fromRGB(255, 40, 40)
+inputStroke.Thickness = 1.5
+inputStroke.Parent = inputFrame
+
+-- Detect if mobile for different placeholder
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+local keyInput = Instance.new("TextBox")
+keyInput.Size = UDim2.new(1, -20, 1, 0)
+keyInput.Position = UDim2.new(0, 10, 0, 0)
+keyInput.BackgroundTransparency = 1
+keyInput.Text = ""
+keyInput.PlaceholderText = isMobile and "Tap here to type key..." or "Enter your key here..."
+keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+keyInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
+keyInput.TextSize = 14
+keyInput.Font = Enum.Font.Gotham
+keyInput.TextXAlignment = Enum.TextXAlignment.Left
+keyInput.ClearTextOnFocus = false
+keyInput.TextEditable = true
+keyInput.Parent = inputFrame
+
+keyInput.Focused:Connect(function()
+    TweenService:Create(inputStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(255, 90, 90)}):Play()
+end)
+keyInput.FocusLost:Connect(function()
+    TweenService:Create(inputStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(255, 40, 40)}):Play()
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- GET KEY BUTTON (RED)
+-- ═══════════════════════════════════════════════════════════
+local getKeyBtn = Instance.new("TextButton")
+getKeyBtn.Size = UDim2.new(1, -40, 0, 45)
+getKeyBtn.Position = UDim2.new(0, 20, 0, 180)
+getKeyBtn.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
+getKeyBtn.Text = "📋  Get Key (discord.gg/zH9598mPp)"
+getKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+getKeyBtn.TextSize = 15
+getKeyBtn.Font = Enum.Font.GothamBold
+getKeyBtn.AutoButtonColor = false
+getKeyBtn.Parent = mainFrame
+
+local getKeyCorner = Instance.new("UICorner")
+getKeyCorner.CornerRadius = UDim.new(0, 8)
+getKeyCorner.Parent = getKeyBtn
+
+getKeyBtn.MouseEnter:Connect(function()
+    TweenService:Create(getKeyBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 70, 70)}):Play()
+end)
+getKeyBtn.MouseLeave:Connect(function()
+    TweenService:Create(getKeyBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 40, 40)}):Play()
+end)
+
+-- Status label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -40, 0, 20)
+statusLabel.Position = UDim2.new(0, 20, 1, -28)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = ""
+statusLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
+statusLabel.TextSize = 13
+statusLabel.Font = Enum.Font.GothamMedium
+statusLabel.TextWrapped = true
+statusLabel.Parent = mainFrame
+
+-- ═══════════════════════════════════════════════════════════
+-- UNIVERSAL CLIPBOARD FUNCTION (Max Executor Compatibility)
+-- ═══════════════════════════════════════════════════════════
+local function copyToClipboard(text)
+    -- Method 1: Standard setclipboard (Xeno, Solara, Codex, most modern executors)
+    if setclipboard then
+        local success = pcall(function()
+            setclipboard(text)
+        end)
+        if success then return true end
+    end
+    
+    -- Method 2: toclipboard (some executors)
+    if toclipboard then
+        local success = pcall(function()
+            toclipboard(text)
+        end)
+        if success then return true end
+    end
+    
+    -- Method 3: clipboard library (older executors)
+    if clipboard and clipboard.set then
+        local success = pcall(function()
+            clipboard.set(text)
+        end)
+        if success then return true end
+    end
+    
+    -- Method 4: syn.write_clipboard (Synapse X legacy)
+    if syn and syn.write_clipboard then
+        local success = pcall(function()
+            syn.write_clipboard(text)
+        end)
+        if success then return true end
+    end
+    
+    -- Method 5: Delta mobile clipboard (if available)
+    if Delta and Delta.Clipboard and Delta.Clipboard.Set then
+        local success = pcall(function()
+            Delta.Clipboard.Set(text)
+        end)
+        if success then return true end
+    end
+    
+    -- Method 6: Xeno custom clipboard (if available)
+    if Xeno and Xeno.Clipboard and Xeno.Clipboard.Set then
+        local success = pcall(function()
+            Xeno.Clipboard.Set(text)
+        end)
+        if success then return true end
+    end
+    
+    -- Method 7: Solara clipboard (if available)
+    if Solara and Solara.setclipboard then
+        local success = pcall(function()
+            Solara.setclipboard(text)
+        end)
+        if success then return true end
+    end
+    
+    return false
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- BUTTON CLICK HANDLER
+-- ═══════════════════════════════════════════════════════════
+local clicked = false
+getKeyBtn.MouseButton1Click:Connect(function()
+    if clicked then return end
+    clicked = true
+
+    local success = copyToClipboard(DISCORD_INVITE)
+
+    if success then
+        getKeyBtn.Text = "✅  Copied!"
+        statusLabel.Text = "Discord link copied! Paste in your browser."
+        statusLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
+    else
+        -- Fallback: Show the link for manual copy
+        getKeyBtn.Text = "❌  Copy Unavailable"
+        statusLabel.Text = "Manually copy: " .. DISCORD_INVITE
+        statusLabel.TextColor3 = Color3.fromRGB(255, 180, 100)
+    end
+
+    task.wait(3)
+    if screenGui and screenGui.Parent then
+        getKeyBtn.Text = "📋  Get Key(discord.gg/zH9598mPp)"
+        statusLabel.Text = ""
+    end
+    clicked = false
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- DRAGGING SUPPORT (PC + Mobile Touch)
+-- ═══════════════════════════════════════════════════════════
+local dragging, dragInput, dragStart, startPos
+
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(
+        startPos.X.Scale, startPos.X.Offset + delta.X,
+        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+    )
+end
+
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        updateDrag(input)
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- GUI STABILITY PROTECTION (prevents accidental removal)
+-- ═══════════════════════════════════════════════════════════
+screenGui.AncestryChanged:Connect(function()
+    if not screenGui.Parent then
+        task.wait(0.1)
+        if not screenGui.Parent then
+            safeParentGui(screenGui, getSafeGuiParent())
+        end
+    end
+end)
+
+-- Keep GUI visible (anti-close protection)
+task.spawn(function()
+    while screenGui.Parent do
+        task.wait(1)
+        if screenGui.Enabled == false then
+            screenGui.Enabled = true
+        end
+        if mainFrame.Visible == false then
+            mainFrame.Visible = true
+        end
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- OPEN ANIMATION
+-- ═══════════════════════════════════════════════════════════
+mainFrame.Position = UDim2.new(0.5, 0, 1.5, 0)
+mainFrame:TweenPosition(
+    UDim2.new(0.5, 0, 0.5, 0),
+    "Out", "Back", 0.5,
+    true
+)
+
+print("[KeySystem] Loaded. Discord: " .. DISCORD_INVITE)
